@@ -29,6 +29,7 @@
 #include "QXmppLogger.h"
 #include "QXmppOutgoingClient.h"
 #include "QXmppMessage.h"
+#include "QXmppSaslAuth.h"
 #include "QXmppUtils.h"
 
 #include "QXmppReconnectionManager.h"
@@ -199,6 +200,11 @@ QXmppClient::QXmppClient(QObject *parent)
     check = connect(discoveryManager, SIGNAL(itemsReceived(QXmppDiscoveryIq)),
                     this, SIGNAL(discoveryIqReceived(QXmppDiscoveryIq)));
     Q_ASSERT(check);
+
+    addSaslMechanism(new QXmppSaslAnonymous);
+    addSaslMechanism(new QXmppSaslDigestMd5);
+    addSaslMechanism(new QXmppSaslPlain);
+    addSaslMechanism(new QXmppSaslFacebook);
 }
 
 /// Destructor, destroys the QXmppClient object.
@@ -251,6 +257,33 @@ bool QXmppClient::removeExtension(QXmppClientExtension* extension)
 QList<QXmppClientExtension*> QXmppClient::extensions()
 {
     return d->extensions;
+}
+
+/// Registers a new SASL mechanism with the client.
+///
+/// \param mechanism
+
+bool QXmppClient::addSaslMechanism(QXmppSaslMechanism *mechanism)
+{
+    return d->stream->addSaslMechanism(mechanism);
+}
+
+/// Unregisters the given SASL mechanism from the client. If the
+/// SASL mechanism is found, it will be destroyed.
+///
+/// \param mechanism
+
+bool QXmppClient::removeSaslMechanism(QXmppSaslMechanism *mechanism)
+{
+    return d->stream->removeSaslMechanism(mechanism);
+}
+
+/// Returns a list containing all the client's SASL mechanisms.
+///
+
+QHash<QString, QXmppSaslMechanism *> QXmppClient::saslMechanisms()
+{
+    return d->stream->saslMechanisms();
 }
 
 /// Returns a modifiable reference to the current configuration of QXmppClient.

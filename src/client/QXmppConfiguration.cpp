@@ -24,6 +24,7 @@
 
 #include <QSslSocket>
 #include "QXmppConfiguration.h"
+#include "QXmppSaslAuth.h"
 #include "QXmppUtils.h"
 
 /// Creates a QXmppConfiguration object.
@@ -40,7 +41,7 @@ QXmppConfiguration::QXmppConfiguration() : m_port(5222),
                 m_ignoreSslErrors(true),
                 m_streamSecurityMode(QXmppConfiguration::TLSEnabled),
                 m_nonSASLAuthMechanism(QXmppConfiguration::NonSASLDigest),
-                m_SASLAuthMechanism(QXmppConfiguration::SASLDigestMD5)
+                m_SASLAuthMechanism("DIGEST-MD5")
 {
 
 }
@@ -390,7 +391,7 @@ void QXmppConfiguration::setNonSASLAuthMechanism(
 
 QXmppConfiguration::SASLAuthMechanism QXmppConfiguration::sASLAuthMechanism() const
 {
-    return m_SASLAuthMechanism;
+    return QXmppSaslMechanism::fromString(m_SASLAuthMechanism);
 }
 
 /// Hints the library the SASL authentication mechanism to be used for authentication.
@@ -400,6 +401,26 @@ QXmppConfiguration::SASLAuthMechanism QXmppConfiguration::sASLAuthMechanism() co
 
 void QXmppConfiguration::setSASLAuthMechanism(
         QXmppConfiguration::SASLAuthMechanism mech)
+{
+    m_SASLAuthMechanism = QXmppSaslMechanism::toString(mech);
+}
+
+/// Returns the SASL authentication mechanism configuration.
+///
+/// \return QXmppConfiguration::SASLAuthMechanism
+///
+
+QString QXmppConfiguration::sASLAuthMechanismString() const
+{
+    return m_SASLAuthMechanism;
+}
+
+/// Hints the library the SASL authentication mechanism to be used for authentication.
+///
+/// \param mech QXmppConfiguration::SASLAuthMechanism
+///
+
+void QXmppConfiguration::setSASLAuthMechanismString(const QString &mech)
 {
     m_SASLAuthMechanism = mech;
 }

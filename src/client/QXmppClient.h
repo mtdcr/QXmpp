@@ -37,6 +37,7 @@ class QXmppPresence;
 class QXmppMessage;
 class QXmppIq;
 class QXmppStream;
+class QXmppSaslMechanism;
 
 // managers
 class QXmppDiscoveryIq;
@@ -131,6 +132,23 @@ public:
             T* extension = qobject_cast<T*>(list.at(i));
             if(extension)
                 return extension;
+        }
+        return 0;
+    }
+
+    bool addSaslMechanism(QXmppSaslMechanism *mechanism);
+    bool removeSaslMechanism(QXmppSaslMechanism *mechanism);
+    QHash<QString, QXmppSaslMechanism *> saslMechanisms();
+
+    template<typename T>
+    T *findSaslMechanism()
+    {
+        QList<QXmppSaslMechanism *> list = saslMechanisms().values();
+        for (int i = 0; i < list.size(); i++)
+        {
+            T *mechanism = qobject_cast<T *>(list.at(i));
+            if (mechanism)
+                return mechanism;
         }
         return 0;
     }

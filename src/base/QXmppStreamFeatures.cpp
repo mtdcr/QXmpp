@@ -24,6 +24,7 @@
 #include <QDomElement>
 
 #include "QXmppConstants.h"
+#include "QXmppSaslAuth.h"
 #include "QXmppStreamFeatures.h"
 
 QXmppStreamFeatures::QXmppStreamFeatures()
@@ -66,10 +67,36 @@ void QXmppStreamFeatures::setNonSaslAuthMode(QXmppStreamFeatures::Mode mode)
 
 QList<QXmppConfiguration::SASLAuthMechanism> QXmppStreamFeatures::authMechanisms() const
 {
-    return m_authMechanisms;
+    QList<QXmppConfiguration::SASLAuthMechanism> list;
+
+    foreach (const QString &str, m_authMechanisms) {
+        QXmppConfiguration::SASLAuthMechanism mech = QXmppSaslMechanism::fromString(str);
+        if (mech != static_cast<QXmppConfiguration::SASLAuthMechanism>(-1))
+            list << mech;
+    }
+
+    return list;
 }
 
 void QXmppStreamFeatures::setAuthMechanisms(QList<QXmppConfiguration::SASLAuthMechanism> &mechanisms)
+{
+    QList<QString> list;
+
+    foreach (const QXmppConfiguration::SASLAuthMechanism &mech, mechanisms) {
+        QString str = QXmppSaslMechanism::toString(mech);
+        if (!str.isEmpty())
+            list << str;
+    }
+
+    m_authMechanisms = list;
+}
+
+QList<QString> QXmppStreamFeatures::authMechanismsStrings() const
+{
+    return m_authMechanisms;
+}
+
+void QXmppStreamFeatures::setAuthMechanismsStrings(QList<QString> &mechanisms)
 {
     m_authMechanisms = mechanisms;
 }
@@ -141,14 +168,7 @@ void QXmppStreamFeatures::parse(const QDomElement &element)
         QDomElement subElement = mechs.firstChildElement("mechanism");
         while(!subElement.isNull())
         {
-            if (subElement.text() == QLatin1String("PLAIN"))
-                m_authMechanisms << QXmppConfiguration::SASLPlain;
-            else if (subElement.text() == QLatin1String("DIGEST-MD5"))
-                m_authMechanisms << QXmppConfiguration::SASLDigestMD5;
-            else if (subElement.text() == QLatin1String("ANONYMOUS"))
-                m_authMechanisms << QXmppConfiguration::SASLAnonymous;
-            else if (subElement.text() == QLatin1String("X-FACEBOOK-PLATFORM"))
-                m_authMechanisms << QXmppConfiguration::SASLXFacebookPlatform;
+            m_authMechanisms << subElement.text();
             subElement = subElement.nextSiblingElement("mechanism");
         }
     }
@@ -198,21 +218,7 @@ void QXmppStreamFeatures::toXml(QXmlStreamWriter *writer) const
         for (int i = 0; i < m_authMechanisms.size(); i++)
         {
             writer->writeStartElement("mechanism");
-            switch (m_authMechanisms[i])
-            {
-            case QXmppConfiguration::SASLPlain:
-                writer->writeCharacters("PLAIN");
-                break;
-            case QXmppConfiguration::SASLDigestMD5:
-                writer->writeCharacters("DIGEST-MD5");
-                break;
-            case QXmppConfiguration::SASLAnonymous:
-                writer->writeCharacters("ANONYMOUS");
-                break;
-            case QXmppConfiguration::SASLXFacebookPlatform:
-                writer->writeCharacters("X-FACEBOOK-PLATFORM");
-                break;
-            }
+            writer->writeCharacters(m_authMechanisms[i]);
             writer->writeEndElement();
         }
         writer->writeEndElement();

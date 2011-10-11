@@ -133,8 +133,11 @@ public:
     QXmppConfiguration::NonSASLAuthMechanism nonSASLAuthMechanism() const;
     void setNonSASLAuthMechanism(QXmppConfiguration::NonSASLAuthMechanism);
 
-    QXmppConfiguration::SASLAuthMechanism sASLAuthMechanism() const;
-    void setSASLAuthMechanism(QXmppConfiguration::SASLAuthMechanism);
+    QXmppConfiguration::SASLAuthMechanism Q_DECL_DEPRECATED sASLAuthMechanism() const;
+    void Q_DECL_DEPRECATED setSASLAuthMechanism(QXmppConfiguration::SASLAuthMechanism);
+
+    QString sASLAuthMechanismString() const;
+    void setSASLAuthMechanismString(const QString &);
 
     QNetworkProxy networkProxy() const;
     void setNetworkProxy(const QNetworkProxy& proxy);
@@ -181,7 +184,7 @@ private:
 
     StreamSecurityMode m_streamSecurityMode;
     NonSASLAuthMechanism m_nonSASLAuthMechanism;
-    SASLAuthMechanism m_SASLAuthMechanism;
+    QString m_SASLAuthMechanism;
 
     QNetworkProxy m_networkProxy;
 

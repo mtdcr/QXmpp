@@ -25,9 +25,112 @@
 #include <cstdlib>
 
 #include <QCryptographicHash>
+#include <QUrl>
 
+#include "QXmppClient.h"
+#include "QXmppConfiguration.h"
 #include "QXmppSaslAuth.h"
 #include "QXmppUtils.h"
+
+QXmppSaslMechanism::QXmppSaslMechanism(QObject *parent, const QString &identifier, bool needsInitialResponse) :
+    QXmppLoggable(parent),
+    m_configuration(0),
+    m_identifier(identifier),
+    m_needsInitialResponse(needsInitialResponse)
+{
+}
+
+QXmppSaslMechanism::~QXmppSaslMechanism()
+{
+}
+
+QXmppConfiguration::SASLAuthMechanism QXmppSaslMechanism::fromString(const QString &mech)
+{
+    if (mech == "PLAIN")
+        return QXmppConfiguration::SASLPlain;
+    if (mech == "DIGEST-MD5")
+        return QXmppConfiguration::SASLDigestMD5;
+    if (mech == "ANONYMOUS")
+        return QXmppConfiguration::SASLAnonymous;
+    if (mech == "X-FACEBOOK-PLATFORM")
+        return QXmppConfiguration::SASLXFacebookPlatform;
+
+    return static_cast<QXmppConfiguration::SASLAuthMechanism>(-1);
+}
+
+QString QXmppSaslMechanism::toString(QXmppConfiguration::SASLAuthMechanism mech)
+{
+    switch (mech) {
+    case QXmppConfiguration::SASLPlain:
+        return QLatin1String("PLAIN");
+    case QXmppConfiguration::SASLDigestMD5:
+        return QLatin1String("DIGEST-MD5");
+    case QXmppConfiguration::SASLAnonymous:
+        return QLatin1String("ANONYMOUS");
+    case QXmppConfiguration::SASLXFacebookPlatform:
+        return QLatin1String("X-FACEBOOK-PLATFORM");
+    }
+
+    return QString();
+}
+
+void QXmppSaslMechanism::setConfiguration(QXmppConfiguration *configuration)
+{
+    m_configuration = configuration;
+}
+
+QByteArray QXmppSaslMechanism::authText() const
+{
+    return QByteArray();
+}
+
+bool QXmppSaslMechanism::challengeResponse(const QByteArray &challenge,
+                                           QByteArray &response,
+                                           unsigned int step)
+{
+    Q_UNUSED(challenge)
+    Q_UNUSED(response)
+    Q_UNUSED(step)
+
+    warning("Unexpected SASL challenge");
+    return false;
+}
+
+const QString &QXmppSaslMechanism::identifier() const
+{
+    return m_identifier;
+}
+
+bool QXmppSaslMechanism::needsInitialResponse() const
+{
+    return m_needsInitialResponse;
+}
+
+
+
+QXmppSaslAnonymous::QXmppSaslAnonymous(QObject *parent) :
+    QXmppSaslMechanism(parent, QLatin1String("ANONYMOUS"))
+{
+}
+
+
+
+QXmppSaslPlain::QXmppSaslPlain(QObject *parent) :
+    QXmppSaslMechanism(parent, QLatin1String("PLAIN"))
+{
+}
+
+QByteArray QXmppSaslPlain::authText() const
+{
+    return QString('\0' + m_configuration->user() + '\0' + m_configuration->password()).toUtf8();
+}
+
+
+
+QXmppSaslDigestMd5::QXmppSaslDigestMd5(QObject *parent) :
+    QXmppSaslMechanism(parent, QLatin1String("DIGEST-MD5"))
+{
+}
 
 QByteArray QXmppSaslDigestMd5::authzid() const
 {
@@ -212,3 +315,106 @@ QByteArray QXmppSaslDigestMd5::serializeMessage(const QMap<QByteArray, QByteArra
     return ba;
 }
 
+bool QXmppSaslDigestMd5::challengeResponse(const QByteArray &challenge,
+                                           QByteArray &response,
+                                           unsigned int step)
+{
+    if (step != 1 && step != 2) {
+        warning("QXmppSaslDigestMD5: Too many authentication steps");
+        return false;
+    }
+
+    QMap<QByteArray, QByteArray> map = QXmppSaslDigestMd5::parseMessage(challenge);
+
+    if (step == 1) {
+        if (!map.contains("nonce"))
+        {
+            warning("QXmppSaslDigestMD5: Invalid input");
+            return false;
+        }
+
+        const QByteArray &user = m_configuration->user().toUtf8();
+        const QByteArray &pass = m_configuration->password().toUtf8();
+        const QByteArray &domain = m_configuration->domain().toUtf8();
+
+        setAuthzid(map.value("authzid"));
+        setCnonce(QXmppSaslDigestMd5::generateNonce());
+        setDigestUri("xmpp/" + domain);
+        setNc("00000001");
+        setNonce(map.value("nonce"));
+        setQop("auth");
+        setSecret(QCryptographicHash::hash(user + ":" + map.value("realm") + ":" + pass, QCryptographicHash::Md5));
+
+        // Build response
+        QMap<QByteArray, QByteArray> responseMap;
+        responseMap["username"] = user;
+        if (map.contains("realm"))
+            responseMap["realm"] = map.value("realm");
+        responseMap["nonce"] = nonce();
+        responseMap["cnonce"] = cnonce();
+        responseMap["nc"] = nc();
+        responseMap["qop"] = qop();
+        responseMap["digest-uri"] = digestUri();
+        responseMap["response"] = calculateDigest(QByteArray("AUTHENTICATE:") + digestUri());
+
+        if (!authzid().isEmpty())
+            responseMap["authzid"] = authzid();
+        responseMap["charset"] = "utf-8";
+
+        response = serializeMessage(responseMap);
+    } else {
+        if (!map.contains("rspauth"))
+        {
+            warning("QXmppSaslDigestMD5: Invalid input");
+            return false;
+        }
+
+        // check new challenge
+        if (map["rspauth"] != calculateDigest(QByteArray(":") + digestUri()))
+        {
+            warning("QXmppSaslDigestMD5: Bad challenge");
+            return false;
+        }
+
+        response = QByteArray();
+    }
+
+    return true;
+}
+
+
+
+QXmppSaslFacebook::QXmppSaslFacebook(QObject *parent) :
+    QXmppSaslMechanism(parent, QLatin1String("X-FACEBOOK-PLATFORM"))
+{
+}
+
+bool QXmppSaslFacebook::challengeResponse(const QByteArray &challenge,
+                                          QByteArray &response,
+                                          unsigned int step)
+{
+    if (step != 1) {
+        warning("QXmppSaslFacebook: Too many authentication steps");
+        return false;
+    }
+
+    // parse request
+    QUrl request;
+    request.setEncodedQuery(challenge);
+    if (!request.hasQueryItem("method") || !request.hasQueryItem("nonce")) {
+        warning("QXmppSaslFacebook: Invalid input");
+        return false;
+    }
+
+    // build response
+    QUrl query;
+    query.addQueryItem("access_token", m_configuration->facebookAccessToken());
+    query.addQueryItem("api_key", m_configuration->facebookAppId());
+    query.addQueryItem("call_id", 0);
+    query.addQueryItem("method", request.queryItemValue("method"));
+    query.addQueryItem("nonce", request.queryItemValue("nonce"));
+    query.addQueryItem("v", "1.0");
+
+    response = query.encodedQuery();
+    return true;
+}

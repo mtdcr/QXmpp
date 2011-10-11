@@ -174,11 +174,11 @@ void QXmppIncomingClient::handleStream(const QDomElement &streamElement)
     }
     else if (d->passwordChecker)
     {
-        QList<QXmppConfiguration::SASLAuthMechanism> mechanisms;
-        mechanisms << QXmppConfiguration::SASLPlain;
+        QList<QString> mechanisms;
+        mechanisms << QLatin1String("PLAIN");
         if (d->passwordChecker->hasGetPassword())
-            mechanisms << QXmppConfiguration::SASLDigestMD5;
-        features.setAuthMechanisms(mechanisms);
+            mechanisms << QLatin1String("DIGEST-MD5");
+        features.setAuthMechanismsStrings(mechanisms);
     }
     sendPacket(features);
 }

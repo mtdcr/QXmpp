@@ -60,6 +60,10 @@ public:
 
     QXmppConfiguration& configuration();
 
+    bool addSaslMechanism(QXmppSaslMechanism *mechanism);
+    bool removeSaslMechanism(QXmppSaslMechanism *mechanism);
+    QHash<QString, QXmppSaslMechanism *> saslMechanisms();
+
 signals:
     /// This signal is emitted when an error is encountered.
     void error(QXmppClient::Error);
@@ -95,9 +99,6 @@ private slots:
     void pingTimeout();
 
 private:
-    void sendAuthDigestMD5ResponseStep1(const QString& challenge);
-    void sendAuthDigestMD5ResponseStep2(const QString& challenge);
-    void sendAuthXFacebookResponse(const QString& challenge);
     void sendNonSASLAuth(bool plaintext);
     void sendNonSASLAuthQuery();
 

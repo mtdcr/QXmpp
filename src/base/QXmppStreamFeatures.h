@@ -48,8 +48,11 @@ public:
     Mode nonSaslAuthMode() const;
     void setNonSaslAuthMode(Mode mode);
 
-    QList<QXmppConfiguration::SASLAuthMechanism> authMechanisms() const;
-    void setAuthMechanisms(QList<QXmppConfiguration::SASLAuthMechanism> &mecanisms);
+    QList<QXmppConfiguration::SASLAuthMechanism> Q_DECL_DEPRECATED authMechanisms() const;
+    void Q_DECL_DEPRECATED setAuthMechanisms(QList<QXmppConfiguration::SASLAuthMechanism> &mecanisms);
+
+    QList<QString> authMechanismsStrings() const;
+    void setAuthMechanismsStrings(QList<QString> &mechanisms);
 
     QList<QXmppConfiguration::CompressionMethod> compressionMethods() const;
     void setCompressionMethods(QList<QXmppConfiguration::CompressionMethod> &methods);
@@ -69,7 +72,7 @@ private:
     Mode m_sessionMode;
     Mode m_nonSaslAuthMode;
     Mode m_tlsMode;
-    QList<QXmppConfiguration::SASLAuthMechanism> m_authMechanisms;
+    QList<QString> m_authMechanisms;
     QList<QXmppConfiguration::CompressionMethod> m_compressionMethods;
 };
 
