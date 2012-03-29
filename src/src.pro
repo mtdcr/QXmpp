@@ -43,6 +43,7 @@ INSTALLS += headers target
 
 # pkg-config support
 CONFIG += create_pc create_prl no_install_prl
+QMAKE_PKGCONFIG_PREFIX = $$PREFIX
 QMAKE_PKGCONFIG_DESTDIR = pkgconfig
 QMAKE_PKGCONFIG_LIBDIR = $$target.path
 QMAKE_PKGCONFIG_INCDIR = $$headers.path
