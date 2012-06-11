@@ -440,7 +440,7 @@ bool QXmppTransferIncomingJob::writeData(const QByteArray &data)
     d->done += written;
     if (!d->fileInfo.hash().isEmpty())
         d->hash.addData(data);
-    progress(d->done, d->fileInfo.size());
+    emit progress(d->done, d->fileInfo.size());
     return true;
 }
 
@@ -724,17 +724,33 @@ void QXmppTransferManager::setClient(QXmppClient *client)
 
 void QXmppTransferManager::byteStreamIqReceived(const QXmppByteStreamIq &iq)
 {
-    // handle IQ from proxy
-    foreach (QXmppTransferJob *job, d->jobs)
+    foreach (QXmppTransferJob *ptr, d->jobs)
     {
-        if (job->d->socksProxy.jid() == iq.from() && job->d->requestId == iq.id())
+        // handle IQ from proxy
+        if (ptr->direction() == QXmppTransferJob::OutgoingDirection && ptr->d->socksProxy.jid() == iq.from() && ptr->d->requestId == iq.id())
         {
-            if (iq.type() == QXmppIq::Result && iq.streamHosts().size() > 0)
+            QXmppTransferOutgoingJob *job = static_cast<QXmppTransferOutgoingJob*>(ptr);
+            if (job->d->socksSocket)
             {
-                job->d->socksProxy = iq.streamHosts().first();
-                socksServerSendOffer(job);
-                return;
+                // proxy connection activation result
+                if (iq.type() == QXmppIq::Result)
+                {
+                    // proxy stream activated, start sending data
+                    job->startSending();
+                } else if (iq.type() == QXmppIq::Error) {
+                    // proxy stream not activated, terminate
+                    job->terminate(QXmppTransferJob::ProtocolError);
+                }
+            } else {
+                if (iq.type() == QXmppIq::Result) {
+                    job->d->socksProxy = iq.streamHosts().first();
+                    socksServerSendOffer(job);
+                }
+                // we could not get host/port from proxy, proceed without a proxy
+                if (iq.type() == QXmppIq::Error)
+                    socksServerSendOffer(job);
             }
+            return;
         }
     }
 
@@ -785,11 +801,6 @@ void QXmppTransferManager::byteStreamResultReceived(const QXmppByteStreamIq &iq)
         job->terminate(QXmppTransferJob::ProtocolError);
         return;
     }
-    check = connect(job->d->socksSocket, SIGNAL(disconnected()),
-                    job, SLOT(_q_disconnected()));
-    Q_ASSERT(check);
-
-    job->startSending();
 }
 
 /// Handle a bytestream set, i.e. an invitation from the remote party to connect
@@ -1036,32 +1047,8 @@ void QXmppTransferManager::_q_iqReceived(const QXmppIq &iq)
 
     foreach (QXmppTransferJob *ptr, d->jobs)
     {
-        // handle IQ from proxy
-        if (ptr->direction() == QXmppTransferJob::OutgoingDirection && ptr->d->socksProxy.jid() == iq.from() && ptr->d->requestId == iq.id())
-        {
-            QXmppTransferOutgoingJob *job = static_cast<QXmppTransferOutgoingJob*>(ptr);
-            if (job->d->socksSocket)
-            {
-                // proxy connection activation result
-                if (iq.type() == QXmppIq::Result)
-                {
-                    // proxy stream activated, start sending data
-                    job->startSending();
-                } else if (iq.type() == QXmppIq::Error) {
-                    // proxy stream not activated, terminate
-                    warning("Could not activate SOCKS5 proxy bytestream");
-                    job->terminate(QXmppTransferJob::ProtocolError);
-                }
-            } else {
-                // we could not get host/port from proxy, procede without a proxy
-                if (iq.type() == QXmppIq::Error)
-                    socksServerSendOffer(job);
-            }
-            return;
-        }
-
         // handle IQ from peer
-        else if (ptr->d->jid == iq.from() && ptr->d->requestId == iq.id())
+        if (ptr->d->jid == iq.from() && ptr->d->requestId == iq.id())
         {
             QXmppTransferJob *job = ptr;
             if (job->direction() == QXmppTransferJob::OutgoingDirection &&
